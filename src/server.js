@@ -12,7 +12,7 @@
  * Config (env):
  *   ECHR_API_BASE      default https://150.254.115.204/echr-api/api
  *   ECHR_API_KEY       optional token sent as X-API-Key
- *   ECHR_INSECURE_TLS  "1" (default) accepts the VM's self-signed cert
+ *   ECHR_INSECURE_TLS  "1" accepts an untrusted cert (self-hosted API); default "0"
  *   ECHR_TIMEOUT_MS    default 45000 — cold FTS queries on the 2M-paragraph
  *                      index have been measured at ~15s; warm ones ~1.5s.
  */
@@ -24,7 +24,7 @@ import zlib from 'node:zlib';
 
 const API_BASE = (process.env.ECHR_API_BASE || 'https://150.254.115.204/echr-api/api').replace(/\/$/, '');
 const API_KEY = process.env.ECHR_API_KEY || '';
-const INSECURE_TLS = (process.env.ECHR_INSECURE_TLS ?? '1') === '1';
+const INSECURE_TLS = (process.env.ECHR_INSECURE_TLS ?? '0') === '1';
 const TIMEOUT_MS = Number(process.env.ECHR_TIMEOUT_MS || 45000);
 
 export const config = { API_BASE, API_KEY, INSECURE_TLS, TIMEOUT_MS };
