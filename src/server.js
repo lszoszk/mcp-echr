@@ -299,7 +299,7 @@ export function buildServer() {
         if (!rows.length) return ok(`No ${endpoint.replace('_', ' ')} records for ${case_id}.`);
         const body = rows.slice(0, limit).map((r) =>
           `${citation(r, null)}${r.respondent_state ? ` · ${r.respondent_state}` : ''}` +
-          `${r.para_count != null ? ` — referenced in ${r.para_count} paragraph(s)` : ''}\n[case_id: ${r.case_id}]`
+          `${r.para_count != null ? ` — referenced in at least ${r.para_count} paragraph(s)` : ''}\n[case_id: ${r.case_id}]`
         ).join('\n\n');
         return ok(`${render(rows.length, case_id)}\n\n${body}`);
       }
@@ -311,7 +311,9 @@ export function buildServer() {
   citationTool(
     'echr_cited_by', 'cited_by', 'Find later ECtHR cases citing this one',
     'List subsequent ECtHR judgments that cite a given case — the forward citation graph, for tracing how an authority was applied, distinguished or developed. Returns up to `limit` cases; the full count is the cited_by figure on echr_get_case.',
-    (n, id) => `Showing ${n} case(s) citing ${id} (up to the requested limit; echr_get_case reports the full cited-by count).`
+    (n, id) => `Showing ${n} case(s) citing ${id} (up to the requested limit; echr_get_case reports the full cited-by count). ` +
+      `Cited by counts judgments, not mentions: a judgment that refers to the case in ten paragraphs counts once; ` +
+      `the paragraph figure is a minimum, as later short references ("cited above") are not detected.`
   );
 
   citationTool(
