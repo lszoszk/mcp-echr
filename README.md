@@ -28,6 +28,28 @@ judgment, so answers stay citable to the paragraph.
 Every result carries a Strasbourg-style citation (case name, application
 number, § number, date) and the `case_id` needed to chain into the next tool.
 
+## Hosted connector (nothing to install)
+
+**https://150.254.115.204/echr-api/mcp** — Streamable HTTP, no token.
+
+- **Claude (claude.ai / Desktop):** Settings → Connectors → Add custom connector → paste the address.
+- **Claude Code:** `claude mcp add --transport http echr https://150.254.115.204/echr-api/mcp -s user`
+- Any other MCP client that supports remote (HTTP) servers: the same address.
+
+The local install below is for running the server yourself.
+
+## Skill: ECtHR research
+
+[`skills/echr-research`](skills/echr-research/SKILL.md) teaches Claude how to use these tools well:
+find the case-law on an issue, identify the leading case, quote paragraphs verbatim with OSCOLA
+pinpoints, and check the ECtHR citations in a draft.
+
+- **claude.ai / Desktop:** download [`skills/echr-research.zip`](skills/echr-research.zip), then
+  Settings → Capabilities → Skills → Upload skill.
+- **Claude Code:** copy the `skills/echr-research` folder into `~/.claude/skills/`.
+
+The skill needs the connector above.
+
 ## Requirements
 
 - Node.js ≥ 18
