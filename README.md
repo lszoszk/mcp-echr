@@ -122,6 +122,10 @@ including the error path.
   carry no reasoning.
 - `para_idx` is an internal row index and is not citable; cite the printed
   `§` number the tools display.
+- About 2,500 of the most-cited judgments that HUDOC publishes only in French are available in an
+  unofficial English machine translation. Search leaves them out unless `translations` is `"include"`
+  or `"only"`; every record and paragraph listing of one carries an `UNOFFICIAL MACHINE TRANSLATION`
+  line naming the French original.
 - HUDOC (https://hudoc.echr.coe.int) is the authoritative source of every
   judgment: check a passage there before relying on it. This is an independent
   research tool, not affiliated with the Court, and not legal advice.

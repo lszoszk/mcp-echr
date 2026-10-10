@@ -29,25 +29,31 @@ https://lszoszk.github.io/ECHR-Dashboard/about.html#mcp (connector address
    verbatim from `echr_get_paragraphs` or a search hit, and give its pinpoint. Never write a quotation
    you have not read through the tools in this conversation.
 2. **Cite the paragraph the tools give.** Use the § number the tool prints. Never cite `para_idx` (an
-   internal row number) and never guess a paragraph number.
+   internal row number) and never guess a paragraph number. A row printed `(unnumbered, idx N)` has no §:
+   cite it without a pinpoint.
 3. **The case_id is the HUDOC item id** (`001-58920`), not the application number. Use it to chain tools.
+   One application number can have two judgments (Chamber and Grand Chamber, e.g. *Hatton*): match the
+   date and formation.
 4. **Know what you are citing.**
    - A paragraph in *Separate Opinion* is a judge's opinion, not the Court's holding.
    - *Legal Framework* paragraphs quote domestic or international law, not the Court's reasoning.
    - *Facts*, *Procedure* and *Circumstances* describe the case; the Court's reasoning is in *Merits*
      (and *Admissibility*).
-   - A judgment marked as a **machine translation** exists only in French on HUDOC; its English text is
-     unofficial. Say so, and cite the French original.
+   - A judgment marked **UNOFFICIAL MACHINE TRANSLATION** exists only in French on HUDOC; its English
+     text is unofficial. Say so whenever you quote it, and cite the French original (the HUDOC item the
+     tool names). Search leaves these out unless you pass `translations: "include"`. In citation lists,
+     "French only on HUDOC" marks the same judgments.
 5. **HUDOC is the authoritative text.** Give the HUDOC link for every judgment you rely on, and remind
    the user to check a passage there before relying on it. This is a research aid, not legal advice.
-6. **Cited by counts judgments, not mentions**, and it includes judgments that exist only in French. It
-   measures how often the Court builds on a judgment, not approval.
+6. **Cited by counts judgments, not mentions**, and it includes judgments that exist only in French and
+   citations in separate opinions. It measures how often the Court builds on a judgment, not approval.
 
 ## Citing (OSCOLA)
 
 `Name v State [GC] App no 12345/67 (ECtHR, 26 October 2000), para 152`
 
-- Name from the title without "CASE OF", "v" without a full stop, *the* in lower case after "v"
+- Name from the title without "CASE OF" (the record is in capitals and drops diacritics: restore them,
+  KUDLA → Kudła, and check on HUDOC), "v" without a full stop, *the* in lower case after "v"
   ("Hatton and Others v the United Kingdom").
 - `[GC]` for the Grand Chamber; `(dec)` after the name for a decision.
 - One application: `App no 30210/96`; two: `App nos 1874/13 and 8567/13`; more: `App no 1874/13 and
@@ -61,10 +67,14 @@ https://lszoszk.github.io/ECHR-Dashboard/about.html#mcp (connector address
 
 ### "What does the Court say about X?"
 1. `echr_search` with the key legal terms (use a quoted phrase for a term of art, e.g.
-   `"margin of appreciation"`), and an Article filter when the user names one.
+   `"margin of appreciation"`), and an Article filter when the user names one. **Every word is
+   required**: use 2–4 terms or one phrase, and drop terms if fewer than five hits come back. Once you
+   find the Court's stock formula, search it as a phrase (e.g. `"favourable environment"`). Check
+   `echr_facets` for State spellings (Turkey and Türkiye both occur).
 2. Group the hits by judgment. For the two or three most relevant judgments, read the surrounding
    paragraphs with `echr_get_paragraphs` so you quote the Court's reasoning, not a fact summary.
-3. Find the **leading case**: check `echr_get_case` for importance (Key case, Grand Chamber) and Cited by;
+3. Find the **leading case**: check `echr_get_case` for `Importance: Key cases` (or 1–3),
+   `Formation: Court (Grand Chamber)` and Cited by (`importance: ["Key cases"]` filters search to them);
    if the hits keep citing one earlier judgment, read that judgment's general-principles paragraphs.
 4. Answer with: the principle in one or two sentences; the leading case quoted with its pinpoint; one or
    two applications; the HUDOC links; any limits (separate opinions, translations, dates).
@@ -77,7 +87,8 @@ https://lszoszk.github.io/ECHR-Dashboard/about.html#mcp (connector address
 
 ### "Check the citations in my text"
 For each ECtHR citation in the user's draft:
-1. Identify the judgment (`echr_search` with `case:<app no>` or the name; confirm with `echr_get_case`).
+1. Identify the judgment: `echr_search` with the query `case:30210/96` lists every judgment under that
+   application number (Chamber and Grand Chamber), or search the name; confirm with `echr_get_case`.
 2. Check the name, application number, date and formation against the record.
 3. Check the pinpoint: read the cited § with `echr_get_paragraphs` and confirm it says what the draft
    claims; for a quotation, compare it word for word.
@@ -85,8 +96,11 @@ For each ECtHR citation in the user's draft:
    with the corrected OSCOLA citation.
 
 ### "Which later judgments followed X?"
-`echr_cited_by` on X, then read the citing paragraph in two or three of the most recent or most
-important citing judgments before characterising how they used X.
+`echr_cited_by` on X lists citing judgments newest first (up to 200), without the citing text. Run it on
+both the Chamber and the Grand Chamber judgment where both exist: a citation can attach to either. For a
+topic, search `<Name> <topic term>` with `sections: ["Merits"]` to reach the citing paragraphs directly.
+Read the citing paragraph in two or three of the most recent or most important judgments before
+characterising how they used X.
 
 ## Answer format
 

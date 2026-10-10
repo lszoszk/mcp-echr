@@ -116,10 +116,17 @@ function citation(c, n) {
 
 const arr = (v) => (Array.isArray(v) ? v.filter(Boolean) : []);
 
+// Judgments HUDOC publishes only in French are served in an unofficial English machine translation.
+const isMT = (c) => c && c.text_origin === 'machine_translation';
+const mtNote = (c) =>
+  `UNOFFICIAL MACHINE TRANSLATION from French: the authentic text is French only (HUDOC item ${c.source_case_id || c.case_id}). ` +
+  'Present any quotation as an unofficial translation and cite the French original.';
+
 // Case metadata header shared by search results and echr_get_case.
 function caseHeader(c) {
   const lines = [citation(c, null)];
-  const meta = [c.respondent_state, c.originating_body, c.document_type].filter(Boolean).join(' · ');
+  if (isMT(c)) lines.push(mtNote(c));
+  const meta = [c.respondent_state, c.originating_body && `Formation: ${c.originating_body}`, c.document_type].filter(Boolean).join(' · ');
   if (meta) lines.push(meta);
   if (c.importance) lines.push(`Importance: ${c.importance}`);
   const v = arr(c.violation), nv = arr(c.non_violation);
@@ -156,7 +163,7 @@ const ok = (text) => ({ content: [{ type: 'text', text }] });
 const fail = (text) => ({ isError: true, content: [{ type: 'text', text }] });
 
 export function buildServer() {
-  const server = new McpServer({ name: 'mcp-echr', version: '0.1.0' });
+  const server = new McpServer({ name: 'mcp-echr', version: '0.2.1' });
 
   server.registerTool(
     'echr_search',
@@ -165,7 +172,7 @@ export function buildServer() {
       description:
         'Full-text search over the paragraph-level corpus of European Court of Human Rights judgments and decisions (~20,000 cases, ~2M paragraphs, HUDOC-derived). Returns verbatim paragraphs with a Strasbourg-style citation (case name, application number, § number, date). Ranking is BM25F with the case title and HUDOC keywords boosted. Supports phrase queries in double quotes, e.g. "necessary in a democratic society". Use group="paragraph" when you want the single best paragraphs across all cases; the default group="case" clusters hits under each judgment. This corpus is ECtHR only — for UN treaty-body material use the unhrdb tools instead.',
       inputSchema: {
-        query: z.string().min(1).describe('Search terms. Wrap a phrase in double quotes for exact match, e.g. "margin of appreciation".'),
+        query: z.string().min(1).describe('Search terms. Every word is required (AND), so use 2-4 key terms or one quoted phrase, e.g. "margin of appreciation". Also: OR between alternatives, NOT to exclude, a trailing * for word endings (environment*), case:30210/96 for every judgment under an application number.'),
         articles: z.array(z.string()).optional().describe('Convention articles, e.g. ["8","10"] or sub-provisions ["6-1","8-2"]. Multiple = OR. Call echr_facets for valid values.'),
         states: z.array(z.string()).optional().describe('Respondent States as named by the Court, e.g. ["Poland","Türkiye"]. Multiple = OR. Note both "Moldova" and "Republic of Moldova" occur — check echr_facets.'),
         sections: z.array(z.string()).optional().describe('Judgment sections, e.g. ["Merits","Circumstances","Just Satisfaction","Operative part","Separate Opinion","Procedure"]. Multiple = OR.'),
@@ -175,6 +182,7 @@ export function buildServer() {
         date_to: z.string().optional().describe('Latest judgment date, ISO "YYYY-MM-DD".'),
         group: z.enum(['case', 'paragraph']).default('case').describe('"case" groups matched paragraphs under each judgment; "paragraph" returns a flat, independently ranked list of the best paragraphs.'),
         sort: z.enum(['relevance', 'date_desc', 'date_asc']).default('relevance').describe('Result ordering.'),
+        translations: z.enum(['exclude', 'include', 'only']).default('exclude').describe('Unofficial English machine translations of judgments HUDOC publishes only in French (~2,500 of the most-cited): excluded by default; "include" adds them, "only" searches just them.'),
         include_headings: z.boolean().default(false).describe('Include section headings and boilerplate rows. Off by default — headings match keywords but carry no reasoning.'),
         limit: z.coerce.number().int().min(1).max(20).default(8).describe('Max cases (group="case") or paragraphs (group="paragraph") to return, 1-20.'),
         page: z.coerce.number().int().min(1).default(1).describe('Result page.'),
@@ -188,6 +196,7 @@ export function buildServer() {
         date_from: a.date_from, date_to: a.date_to,
         group: a.group, sort: a.sort,
         exclude_roles: excludeRoles(a.include_headings),
+        include_mt: { exclude: 'false', include: 'true', only: 'only' }[a.translations],
         page: a.page, page_size: a.limit,
       });
       const header =
@@ -276,7 +285,7 @@ export function buildServer() {
         return `${n != null ? `§ ${n}` : `(unnumbered, idx ${p.para_idx})`}${p.section ? ` · ${p.section}` : ''}\n${stripHtml(p.text)}`;
       }).join('\n\n');
       const more = paras.length > shown.length ? `\n\n… ${paras.length - shown.length} further paragraph(s) match; narrow with sections or from_para/to_para.` : '';
-      return ok(`${citation(c, null)}\nShowing ${shown.length} of ${paras.length} matching paragraph(s).\n\n${body}${more}\n\n[case_id: ${c.case_id}]${c.hudoc_url ? `\nSource: ${c.hudoc_url}` : ''}`);
+      return ok(`${citation(c, null)}${isMT(c) ? `\n${mtNote(c)}` : ''}\nShowing ${shown.length} of ${paras.length} matching paragraph(s).\n\n${body}${more}\n\n[case_id: ${c.case_id}]${c.hudoc_url ? `\nSource: ${c.hudoc_url}` : ''}`);
     }
   );
 
@@ -288,7 +297,7 @@ export function buildServer() {
         description,
         inputSchema: {
           case_id: z.string().min(1).describe('HUDOC case id, e.g. "001-72346".'),
-          limit: z.coerce.number().int().min(1).max(50).default(20).describe('Max cases to return (1-50).'),
+          limit: z.coerce.number().int().min(1).max(200).default(20).describe('Max cases to return (1-200), newest first.'),
         },
       },
       async ({ case_id, limit }) => {
@@ -299,6 +308,7 @@ export function buildServer() {
         if (!rows.length) return ok(`No ${endpoint.replace('_', ' ')} records for ${case_id}.`);
         const body = rows.slice(0, limit).map((r) =>
           `${citation(r, null)}${r.respondent_state ? ` · ${r.respondent_state}` : ''}` +
+          `${r.in_corpus === false ? ' · French only on HUDOC (an unofficial English translation may be available)' : ''}` +
           `${r.para_count != null ? ` — referenced in at least ${r.para_count} paragraph(s)` : ''}\n[case_id: ${r.case_id}]`
         ).join('\n\n');
         return ok(`${render(rows.length, case_id)}\n\n${body}`);
