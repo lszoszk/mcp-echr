@@ -163,7 +163,7 @@ const ok = (text) => ({ content: [{ type: 'text', text }] });
 const fail = (text) => ({ isError: true, content: [{ type: 'text', text }] });
 
 export function buildServer() {
-  const server = new McpServer({ name: 'mcp-echr', version: '0.2.1' });
+  const server = new McpServer({ name: 'mcp-echr', version: '0.2.2' });
 
   server.registerTool(
     'echr_search',
@@ -280,12 +280,24 @@ export function buildServer() {
         return fail(`No paragraphs matched those filters in ${case_id}. Sections present in this judgment: ${avail.join(', ') || '(none)'}.`);
       }
       const shown = paras.slice(0, limit);
-      const body = shown.map((p) => {
+      // A paragraph can span several rows (a quoted Article, a list): the rows after the first have
+      // no number of their own (hudoc_para_no null) and carry the paragraph's §. Print them under one
+      // heading so § 80 does not look like three paragraphs.
+      const blocks = [];
+      for (const p of shown) {
         const n = paraNo(p);
-        return `${n != null ? `§ ${n}` : `(unnumbered, idx ${p.para_idx})`}${p.section ? ` · ${p.section}` : ''}\n${stripHtml(p.text)}`;
-      }).join('\n\n');
-      const more = paras.length > shown.length ? `\n\n… ${paras.length - shown.length} further paragraph(s) match; narrow with sections or from_para/to_para.` : '';
-      return ok(`${citation(c, null)}${isMT(c) ? `\n${mtNote(c)}` : ''}\nShowing ${shown.length} of ${paras.length} matching paragraph(s).\n\n${body}${more}\n\n[case_id: ${c.case_id}]${c.hudoc_url ? `\nSource: ${c.hudoc_url}` : ''}`);
+        const prev = blocks[blocks.length - 1];
+        if (prev && n != null && prev.n === n && p.hudoc_para_no == null && prev.section === p.section) {
+          prev.texts.push(stripHtml(p.text));
+        } else {
+          blocks.push({ n, idx: p.para_idx, section: p.section, texts: [stripHtml(p.text)] });
+        }
+      }
+      const body = blocks.map((b) =>
+        `${b.n != null ? `§ ${b.n}` : `(unnumbered, idx ${b.idx})`}${b.section ? ` · ${b.section}` : ''}\n${b.texts.join('\n')}`
+      ).join('\n\n');
+      const more = paras.length > shown.length ? `\n\n… ${paras.length - shown.length} further row(s) match; narrow with sections or from_para/to_para.` : '';
+      return ok(`${citation(c, null)}${isMT(c) ? `\n${mtNote(c)}` : ''}\nShowing ${blocks.length} paragraph(s) (${shown.length} of ${paras.length} matching row(s)).\n\n${body}${more}\n\n[case_id: ${c.case_id}]${c.hudoc_url ? `\nSource: ${c.hudoc_url}` : ''}`);
     }
   );
 
