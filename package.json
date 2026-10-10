@@ -1,6 +1,6 @@
 {
   "name": "mcp-echr",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for European Court of Human Rights case law: paragraph-level search over ~20k judgments and decisions, with Strasbourg-style citations, section filters and the citation graph.",
   "type": "module",
   "bin": {
@@ -8,13 +8,15 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "smoke": "node test-smoke.js"
+    "smoke": "node test-smoke.js",
+    "start:http": "node src/http.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^4.22.3",
     "zod": "^3.23.8"
   },
   "author": "Łukasz Szoszkiewicz",
