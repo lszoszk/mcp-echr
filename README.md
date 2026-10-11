@@ -122,6 +122,8 @@ including the error path.
   carry no reasoning.
 - `para_idx` is an internal row index and is not citable; cite the printed
   `§` number the tools display.
+- `language: "fr"` (echr_search, echr_get_case, echr_get_paragraphs) searches and reads the authentic
+  French texts of the ~9,300 judgments HUDOC publishes only in French; query in French.
 - About 2,500 of the most-cited judgments that HUDOC publishes only in French are available in an
   unofficial English machine translation. Search leaves them out unless `translations` is `"include"`
   or `"only"`; every record and paragraph listing of one carries an `UNOFFICIAL MACHINE TRANSLATION`

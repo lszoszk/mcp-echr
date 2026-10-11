@@ -107,7 +107,9 @@ const paraNo = (p) => (p.display_para_no != null ? p.display_para_no : (p.hudoc_
 // Strasbourg-style citation. Title stays verbatim from HUDOC (it is uppercase
 // there); we do not re-case it, to avoid mangling names.
 function citation(c, n) {
-  const bits = [String(c.title || '').trim()];
+  const title = String(c.title || '').trim();
+  const en = String(c.title_en || '').trim();
+  const bits = [en && en !== title ? `${title} (${en})` : title];
   if (c.case_no) bits.push(`no. ${String(c.case_no).split(';')[0]}`);
   if (n != null) bits.push(`§ ${n}`);
   if (c.judgment_date) bits.push(fmtDate(c.judgment_date));
@@ -120,12 +122,20 @@ const arr = (v) => (Array.isArray(v) ? v.filter(Boolean) : []);
 const isMT = (c) => c && c.text_origin === 'machine_translation';
 const mtNote = (c) =>
   `UNOFFICIAL MACHINE TRANSLATION from French: the authentic text is French only (HUDOC item ${c.source_case_id || c.case_id}). ` +
-  'Present any quotation as an unofficial translation and cite the French original.';
+  'Present any quotation as an unofficial translation and cite the French original.' +
+  (c.original_available ? ' The French original is available here: the same case_id with language "fr".' : '');
+// The authentic French text of a judgment HUDOC publishes only in French (language "fr").
+const isFr = (c) => c && c.text_origin === 'original';
+const frNote = (c) =>
+  `AUTHENTIC FRENCH TEXT: HUDOC publishes this judgment only in French (HUDOC item ${c.source_case_id || c.case_id}). ` +
+  'Quote it in French; translate for the reader if needed, saying the translation is yours.' +
+  (c.translation_available ? ' An unofficial English machine translation exists: the same case_id with language "en".' : '');
 
 // Case metadata header shared by search results and echr_get_case.
 function caseHeader(c) {
   const lines = [citation(c, null)];
   if (isMT(c)) lines.push(mtNote(c));
+  if (isFr(c)) lines.push(frNote(c));
   const meta = [c.respondent_state, c.originating_body && `Formation: ${c.originating_body}`, c.document_type].filter(Boolean).join(' · ');
   if (meta) lines.push(meta);
   if (c.importance) lines.push(`Importance: ${c.importance}`);
@@ -159,11 +169,15 @@ const ROLES_MINIMAL = 'metadata,signature,footer';
 const excludeRoles = (includeHeadings) => (includeHeadings ? ROLES_MINIMAL : ROLES_NO_HEADINGS);
 
 const csv = (a) => (arr(a).length ? arr(a).join(',') : undefined);
+const LANGUAGE = z.enum(['en', 'fr']).default('en').describe(
+  '"en" (default): the English corpus. "fr": the authentic French texts of the ~9,300 judgments HUDOC publishes ' +
+  'only in French: query in French (accents optional, * for word endings); the same filters apply.');
+const langParam = (language) => (language === 'fr' ? 'fr' : undefined);
 const ok = (text) => ({ content: [{ type: 'text', text }] });
 const fail = (text) => ({ isError: true, content: [{ type: 'text', text }] });
 
 export function buildServer() {
-  const server = new McpServer({ name: 'mcp-echr', version: '0.2.2' });
+  const server = new McpServer({ name: 'mcp-echr', version: '0.3.0' });
 
   server.registerTool(
     'echr_search',
@@ -182,6 +196,7 @@ export function buildServer() {
         date_to: z.string().optional().describe('Latest judgment date, ISO "YYYY-MM-DD".'),
         group: z.enum(['case', 'paragraph']).default('case').describe('"case" groups matched paragraphs under each judgment; "paragraph" returns a flat, independently ranked list of the best paragraphs.'),
         sort: z.enum(['relevance', 'date_desc', 'date_asc']).default('relevance').describe('Result ordering.'),
+        language: LANGUAGE,
         translations: z.enum(['exclude', 'include', 'only']).default('exclude').describe('Unofficial English machine translations of judgments HUDOC publishes only in French (~2,500 of the most-cited): excluded by default; "include" adds them, "only" searches just them.'),
         include_headings: z.boolean().default(false).describe('Include section headings and boilerplate rows. Off by default — headings match keywords but carry no reasoning.'),
         limit: z.coerce.number().int().min(1).max(20).default(8).describe('Max cases (group="case") or paragraphs (group="paragraph") to return, 1-20.'),
@@ -196,7 +211,8 @@ export function buildServer() {
         date_from: a.date_from, date_to: a.date_to,
         group: a.group, sort: a.sort,
         exclude_roles: excludeRoles(a.include_headings),
-        include_mt: { exclude: 'false', include: 'true', only: 'only' }[a.translations],
+        include_mt: a.language === 'fr' ? undefined : { exclude: 'false', include: 'true', only: 'only' }[a.translations],
+        lang: langParam(a.language),
         page: a.page, page_size: a.limit,
       });
       const header =
@@ -221,11 +237,12 @@ export function buildServer() {
         'Fetch the full metadata record for one ECtHR case by its HUDOC id (e.g. "001-72346"): case name, application number, ECLI, date, respondent State, importance level, the Court\'s conclusion, the articles found violated / not violated, HUDOC keywords, and how many cases it cites and is cited by. Returns metadata only — use echr_get_paragraphs for the judgment text. Get case_ids from echr_search.',
       inputSchema: {
         case_id: z.string().min(1).describe('HUDOC case id, e.g. "001-72346". This is not the application number.'),
+        language: LANGUAGE,
       },
     },
-    async ({ case_id }) => {
+    async ({ case_id, language }) => {
       let c;
-      try { c = await apiGet(`/cases/${encodeURIComponent(case_id)}`); }
+      try { c = await apiGet(`/cases/${encodeURIComponent(case_id)}`, { lang: langParam(language) }); }
       catch (e) { return fail(`Could not fetch case "${case_id}": ${e.message}`); }
 
       const lines = [caseHeader(c)];
@@ -257,11 +274,12 @@ export function buildServer() {
         to_para: z.coerce.number().int().optional().describe('Last printed § number to include, inclusive.'),
         include_headings: z.boolean().default(false).describe('Include section headings and boilerplate rows.'),
         limit: z.coerce.number().int().min(1).max(120).default(40).describe('Max paragraphs to return (1-120). Narrow with sections or a § range rather than raising this.'),
+        language: LANGUAGE,
       },
     },
-    async ({ case_id, sections, from_para, to_para, include_headings, limit }) => {
+    async ({ case_id, sections, from_para, to_para, include_headings, limit, language }) => {
       let c;
-      try { c = await apiGet(`/cases/${encodeURIComponent(case_id)}`); }
+      try { c = await apiGet(`/cases/${encodeURIComponent(case_id)}`, { lang: langParam(language) }); }
       catch (e) { return fail(`Could not fetch case "${case_id}": ${e.message}`); }
 
       const drop = new Set(excludeRoles(include_headings).split(','));
@@ -297,7 +315,7 @@ export function buildServer() {
         `${b.n != null ? `§ ${b.n}` : `(unnumbered, idx ${b.idx})`}${b.section ? ` · ${b.section}` : ''}\n${b.texts.join('\n')}`
       ).join('\n\n');
       const more = paras.length > shown.length ? `\n\n… ${paras.length - shown.length} further row(s) match; narrow with sections or from_para/to_para.` : '';
-      return ok(`${citation(c, null)}${isMT(c) ? `\n${mtNote(c)}` : ''}\nShowing ${blocks.length} paragraph(s) (${shown.length} of ${paras.length} matching row(s)).\n\n${body}${more}\n\n[case_id: ${c.case_id}]${c.hudoc_url ? `\nSource: ${c.hudoc_url}` : ''}`);
+      return ok(`${citation(c, null)}${isMT(c) ? `\n${mtNote(c)}` : ''}${isFr(c) ? `\n${frNote(c)}` : ''}\nShowing ${blocks.length} paragraph(s) (${shown.length} of ${paras.length} matching row(s)).\n\n${body}${more}\n\n[case_id: ${c.case_id}]${c.hudoc_url ? `\nSource: ${c.hudoc_url}` : ''}`);
     }
   );
 

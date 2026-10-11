@@ -1,6 +1,6 @@
 {
   "name": "mcp-echr",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "MCP server for European Court of Human Rights case law: paragraph-level search over ~20k judgments and decisions, with Strasbourg-style citations, section filters and the citation graph.",
   "type": "module",
   "bin": {

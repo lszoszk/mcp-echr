@@ -43,6 +43,12 @@ https://lszoszk.github.io/ECHR-Dashboard/about.html#mcp (connector address
      text is unofficial. Say so whenever you quote it, and cite the French original (the HUDOC item the
      tool names). Search leaves these out unless you pass `translations: "include"`. In citation lists,
      "French only on HUDOC" marks the same judgments.
+   - `language: "fr"` searches and reads the **authentic French texts** of the ~9,300 judgments HUDOC
+     publishes only in French (marked AUTHENTIC FRENCH TEXT), far more than the translations cover. Query
+     in French (`"marge d'appréciation"`, `requérant*`). Quote these in French and translate for the
+     reader if needed, saying the translation is yours. When a question turns on French-only case-law
+     (much Chamber and Committee case-law against France, Italy, Turkey, Romania, Greece, Belgium), search
+     in French as well as in English.
 5. **HUDOC is the authoritative text.** Give the HUDOC link for every judgment you rely on, and remind
    the user to check a passage there before relying on it. This is a research aid, not legal advice.
 6. **Cited by counts judgments, not mentions**, and it includes judgments that exist only in French and
